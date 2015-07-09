@@ -22,9 +22,7 @@ require "time"
 AUTHOR="kacky"
 
 #画像の移行を行うばあいは設定必須
-TDIARY_IMAGES_DIR="/home/kenstar/public_html/tdiary/images"
-MT_IMAGE_DIR="/home/kenstar/public_html/ks/archives"
-IMAGE_URL="/~kenstar/ks/archives"
+IMAGE_URL="images"
 
 #use Getopt::Std;
 #use File::Copy;
@@ -36,39 +34,124 @@ module WikiStyle
     puts "WikiStyle"
     @ul_switch = 0
   end
+  
+  def end_body
+    while @ul_switch > 0
+      @body[@diary_key] += "</ul>\n"
+      @ul_switch -= 1
+    end
+    @body[@diary_key] += "</p>\n"
+  end
+
+  def shallow_line
+    '<br><br><br><br><br>'
+  end
+
+  def middle_line
+    '<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>'
+  end
+
+  def large_line
+    '<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>'
+  end
+
+  def new_page
+    '<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>'
+  end
+
   def read_body(line)
     if line =~ /^!([^!]+)/
-      # タイトル行
+      # カテゴリ行 (独自ルール)
       tmp = $1
       if (tmp =~ /\[([^\]]*)\](.*)/)
         category = $1
-        title = $2
       else
         category = ""
-        title = tmp
       end
+      
+      title = @_title
       
       next_title(title, category)
+      @body[@diary_key] += "<p>"
     else
+      if line == ""
+        @body[@diary_key] += "</p>\n<p>"
+        return
+      end
+      
+      while line =~ /{{shallow_line}}/
+        line = $` + shallow_line + $'
+      end
+      while line =~ /{{middle_line}}/
+        line = $` + middle_line + $'
+      end
+      while line =~ /{{large_line}}/
+        line = $` + large_line + $'
+      end
+      while line =~ /{{shallow_line}}/
+        line = $` + new_page + $'
+      end
+      
+      if line =~ /^\s/
+        line = "<pre>" + $' + "</pre>"
+      end
+      
+      if line =~ /^!!([^!]+)/
+        line = "<h4>" + $1 + "</h4>"
+      end
+
+      if line =~ /^!!!([^!]+)/
+        line = "<h5>" + $1 + "</h5>"
+      end
+      
+      while line =~ /{{'([^']+)'}}/
+        line = $` + $1 + $'
+      end
+
+      if line =~ /'''([^']+)'''/
+        line = $` + "<strong>" + $1 + "</strong>" + $'
+      end
+
+      if line =~ /''([^']+)''/
+        line = $` + "<em>" + $1 + "</em>" + $'
+      end
+
+      if line =~ /==(.+)==/
+        line = $` + "<del>" + $1 + "</del>" + $'
+      end
+
       # replace a hyperlink
       if (line =~ /\[\[(.*)\s*\|(.*)\]\]/)
-        tmp = "<a href=\"" + $2 + "\">" + $1 + "</a>"
+        line = $` + "<a href=\"" + $2 + "\">" + $1 + "</a>" + $'
       end
       
-      if (@ul_switch != 0 && line =~ /^[^\*]/) 
-        @ul_switch = 0
-        @body[@diary_key] += "</ul>\n<p>"
+      if (@ul_switch > 0 && line =~ /^[^\*]/) 
+        while @ul_switch > 0
+          @body[@diary_key] += "</ul>\n"
+          @ul_switch -= 1
+        end
       end
-      if (line =~ /^\*\s+(.*)/)
-        if (@ul_switch == 0) 
-          @ul_switch = 1
-          @body[@diary_key] += "</p>\n<ul>\n"
+      if (line =~ /^(\*+)([^\*]*)/)
+        switches = $1.size
+        
+        while @ul_switch < switches
+          @body[@diary_key] += "<ul>\n"
+          @ul_switch += 1
         end
         
-        line = "<li>" + $1 + "</li>"
+        while @ul_switch > switches
+          @body[@diary_key] += "</ul>\n"
+          @ul_switch -= 1
+        end
+        
+        line = "<li>" + $2 + "</li>"
       end
       
-      @body[@diary_key] += line + "\n"
+      if tmp
+        @body[@diary_key] += tmp + "\n"
+      else
+        @body[@diary_key] += line + "\n"
+      end
     end
     
   end
@@ -83,16 +166,12 @@ module TDiaryStyle
   def read_body(line)
     if @blank
       # 空行の次だったのでタイトルとして使用
-      # replace a hyperlink
-      if (line =~ /\[\[(.*)\s*\|(.*)\]\]/)
-        tmp = $1
-      end
-      if (tmp =~ /\[([^\]]*)\](.*)/)
+      if (line =~ /\[([^\]]*)\](.*)/)
         category = $1
         title = $2
       else
         category = ""
-        title = tmp
+        title = line
       end
       
       next_title(title, category)
@@ -131,7 +210,6 @@ module TDiaryStyle
           end
           
           line.gsub!(regexp,"\<img alt=\"#{alt}\" src=\"#{IMAGE_URL}\/#{image_name}\" width=#{width} height=#{height} border=\"0\"\/>")
-          # File.copy("#{TDIARY_IMAGES_DIR}/#{image_name}", "#{MT_IMAGE_DIR}") or print "cannot copy\n"
         end
         
         @body[@diary_key] += line + "\n"
@@ -172,6 +250,10 @@ class TDiaryReader
   def read_body(line)
   end
   
+  def end_body
+  end
+
+
   def style_init
   end
   
@@ -180,7 +262,6 @@ class TDiaryReader
     # 空行の次だったのでタイトルとして使用
     @key+=1
     @diary_key = "#{@date_string}-#{@key}"
-    
 #    puts @diary_key
     
     @category[@diary_key] = category
@@ -248,6 +329,7 @@ class TDiaryReader
           @p_date = sprintf("%02d/%02d/%02d", mon, day, year)
           @body[@diary_key] = ""
         elsif(line =~ /Title: (.*)/)
+          @_title = $1
           #	    $title{$diary_key}=$1
         elsif(line =~ /Last-Modified/)
           # 無視
@@ -264,6 +346,7 @@ class TDiaryReader
         if (line =~ /^.$/)
           # 日付終了記号
           content_switch=0
+          end_body
         else
           read_body(line)
         end
@@ -424,15 +507,18 @@ CONVERT BREAKS: __default__
 ALLOW PINGS: 1
 __DIARY_FST__
 
-  if @category[key] != ""
-    file.print <<"__DIARY_CATEGORY__"
-PRIMARY CATEGORY: #{@category[key]}
-CATEGORY: #{@category[key]}
-__DIARY_CATEGORY__
-  else
-    file.print "PRIMARY CATEGORY: \n"
-  end
-  file.print <<"__DIARY_SND__"
+    if @category[key] != ""
+      categories = @category[key].split(",")
+      
+      file.puts "PRIMARY CATEGORY: #{categories[0]}"
+      
+      for category in categories
+        file.puts "CATEGORY: #{category}"
+      end
+    else
+      file.print "PRIMARY CATEGORY: \n"
+    end
+    file.print <<"__DIARY_SND__"
 
 DATE: #{@date[key]}
 -----
@@ -511,7 +597,7 @@ Dir.glob("*/*.td2").each do |td2filename|
   reader = TDiaryReader.new
   puts "convert #{td2filename}"
   tdcfilename = Pathname(td2filename).sub_ext('.tdc').to_s
-  outputfilename = Pathname(td2filename).sub_ext('.log').to_s
+  outputfilename = Pathname(td2filename).sub_ext('.html').to_s
   
   reader.read_tdiary(td2filename)
   reader.read_comment(tdcfilename) if File.exist?(tdcfilename)
