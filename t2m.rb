@@ -19,10 +19,10 @@ require "time"
 #    書式例: 20040101
 #
 
-AUTHOR="kacky"
+AUTHOR="hogehoge"
 
 #画像の移行を行うばあいは設定必須
-IMAGE_URL="images"
+IMAGE_URL="/images"
 
 #use Getopt::Std;
 #use File::Copy;
@@ -33,30 +33,15 @@ module WikiStyle
   def style_init
     puts "WikiStyle"
     @ul_switch = 0
+    @tablemode = 0
   end
-  
+
   def end_body
     while @ul_switch > 0
       @body[@diary_key] += "</ul>\n"
       @ul_switch -= 1
     end
     @body[@diary_key] += "</p>\n"
-  end
-
-  def shallow_line
-    '<br><br><br><br><br>'
-  end
-
-  def middle_line
-    '<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>'
-  end
-
-  def large_line
-    '<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>'
-  end
-
-  def new_page
-    '<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>'
   end
 
   def read_body(line)
@@ -68,9 +53,9 @@ module WikiStyle
       else
         category = ""
       end
-      
+
       title = @_title
-      
+
       next_title(title, category)
       @body[@diary_key] += "<p>"
     else
@@ -78,24 +63,11 @@ module WikiStyle
         @body[@diary_key] += "</p>\n<p>"
         return
       end
-      
-      while line =~ /{{shallow_line}}/
-        line = $` + shallow_line + $'
-      end
-      while line =~ /{{middle_line}}/
-        line = $` + middle_line + $'
-      end
-      while line =~ /{{large_line}}/
-        line = $` + large_line + $'
-      end
-      while line =~ /{{shallow_line}}/
-        line = $` + new_page + $'
-      end
-      
+
       if line =~ /^\s/
         line = "<pre>" + $' + "</pre>"
       end
-      
+
       if line =~ /^!!([^!]+)/
         line = "<h4>" + $1 + "</h4>"
       end
@@ -103,7 +75,7 @@ module WikiStyle
       if line =~ /^!!!([^!]+)/
         line = "<h5>" + $1 + "</h5>"
       end
-      
+
       while line =~ /{{'([^']+)'}}/
         line = $` + $1 + $'
       end
@@ -120,12 +92,30 @@ module WikiStyle
         line = $` + "<del>" + $1 + "</del>" + $'
       end
 
+      # table
+      if line =~ /^\|\|/
+        if @tablemode == 0
+          @body[@diary_key] += "<table border='2'>\n"
+        end
+        cols = line.split(/\|\|/)
+        cols.shift
+        line = "<tr>"
+        for col in cols
+          line += "<td>" + col + "</td>"
+        end
+        line += "</tr>"
+        @tablemode = 1
+      elsif @tablemode != 0
+        @body[@diary_key] += "</table>\n"
+        @tablemode = 0
+      end
+
       # replace a hyperlink
       if (line =~ /\[\[(.*)\s*\|(.*)\]\]/)
         line = $` + "<a href=\"" + $2 + "\">" + $1 + "</a>" + $'
       end
-      
-      if (@ul_switch > 0 && line =~ /^[^\*]/) 
+
+      if (@ul_switch > 0 && line =~ /^[^\*]/)
         while @ul_switch > 0
           @body[@diary_key] += "</ul>\n"
           @ul_switch -= 1
@@ -133,27 +123,80 @@ module WikiStyle
       end
       if (line =~ /^(\*+)([^\*]*)/)
         switches = $1.size
-        
+
         while @ul_switch < switches
           @body[@diary_key] += "<ul>\n"
           @ul_switch += 1
         end
-        
+
         while @ul_switch > switches
           @body[@diary_key] += "</ul>\n"
           @ul_switch -= 1
         end
-        
+
         line = "<li>" + $2 + "</li>"
       end
-      
+
+      # 日記本体
+      #  <%=image 0, '川べり　ここに写ってないけど、久々にすずめをみたよ。', nil, [256,192]%>
+      #  <%=image 1, '職場からの東京(昼)その1'%>
+      # for 画像対応
+      # 20040413_0.jpg
+
+      regexp = /\<\%=image\s+([\d]+),\s*'(.*)'\s*(,\s*([^\[]*)\s*,\s*(.*)\s*)?\%\>/
+      if (line =~ regexp )
+        print "image\n" if $DEBUG
+        print "$1, $2, $3,$4,\n" if $DEBUG
+        image_key = $1
+        alt = $2
+        op = $3
+        wh = $5
+
+        image_name ="#{@date_string}_#{image_key}.jpg"
+        print "$image_name\n" if $DEBUG
+
+        if(wh != "")
+          wh =~ /\[\s*([\d]+)\s*,\s*([\d]+)\s*\]/
+          width = $1
+          height = $2
+        else
+          width=-1
+          height=-1
+        end
+
+        line.gsub!(regexp,"\<img alt=\"#{alt}\" src=\"#{IMAGE_URL}\/#{image_name}\" width=#{width} height=#{height} border=\"0\"\/>")
+      end
+
+      regexp = /{{image\s+([\d]+),\s*'(.*)'\s*,\s*nil\s*,\s*(.*)\s*}}/
+      if (regexp.match(line) )
+        print "image\n" if $DEBUG
+        print "$1, $2, $3,$4,\n" if $DEBUG
+        image_key = $1
+        alt = $2
+        wh = $3
+
+        image_name ="#{@date_string}_#{image_key}.jpg"
+        print "$image_name\n" if $DEBUG
+
+        if(wh != "")
+          wh =~ /\[\s*([\d]+)\s*,\s*([\d]+)\s*\]/
+          width = $1
+          height = $2
+        else
+          width=-1
+          height=-1
+        end
+
+        line.gsub!(regexp,"\<img alt=\"#{alt}\" src=\"#{IMAGE_URL}\/#{image_name}\" width=#{width} height=#{height} border=\"0\"\/>")
+      end
+
       if tmp
         @body[@diary_key] += tmp + "\n"
       else
         @body[@diary_key] += line + "\n"
       end
     end
-    
+
   end
 end
 
@@ -173,12 +216,12 @@ module TDiaryStyle
         category = ""
         title = line
       end
-      
+
       next_title(title, category)
-      
+
       @blank = false
     else
-      
+
       if line == ""
         @blank = true
       else
@@ -187,7 +230,7 @@ module TDiaryStyle
         #  <%=image 1, '職場からの東京(昼)その1'%>
         # for 画像対応
         # 20040413_0.jpg
-        
+
         regexp = /\<\%=image\s+([\d]+),\s*'(.*)'\s*(,\s*([^\[]*)\s*,\s*(.*)\s*)?\%\>/
         if (line =~ regexp )
           print "image\n" if $DEBUG
@@ -196,10 +239,10 @@ module TDiaryStyle
           alt = $2
           op = $3
           wh = $5
-          
-          image_name ="#{date}_#{image_key}.jpg"
+
+          image_name ="#{@date_string}_#{image_key}.jpg"
           print "$image_name\n" if $DEBUG
-          
+
           if(wh != "")
             wh =~ /\[\s*([\d]+)\s*,\s*([\d]+)\s*\]/
             width = $1
@@ -208,25 +251,48 @@ module TDiaryStyle
             width=-1
             height=-1
           end
-          
+
           line.gsub!(regexp,"\<img alt=\"#{alt}\" src=\"#{IMAGE_URL}\/#{image_name}\" width=#{width} height=#{height} border=\"0\"\/>")
         end
-        
+
+        regexp = /{{image\s+([\d]+),\s*'(.*)'\s*,\s*nil\s*,\s*(.*)\s*}}/
+        if (regexp.match(line) )
+          print "image\n" if $DEBUG
+          print "$1, $2, $3,$4,\n" if $DEBUG
+          image_key = $1
+          alt = $2
+          wh = $3
+
+          image_name ="#{@date_string}_#{image_key}.jpg"
+          print "$image_name\n" if $DEBUG
+
+          if(wh != "")
+            wh =~ /\[\s*([\d]+)\s*,\s*([\d]+)\s*\]/
+            width = $1
+            height = $2
+          else
+            width=-1
+            height=-1
+          end
+
+          line.gsub!(regexp,"\<img alt=\"#{alt}\" src=\"#{IMAGE_URL}\/#{image_name}\" width=#{width} height=#{height} border=\"0\"\/>")
+        end
+
         @body[@diary_key] += line + "\n"
-        
+
       end
     end
   end
-  
+
 end
 
 
 
 class TDiaryReader
-  
+
   attr_reader :category, :title, :visible, :body, :date
   attr_reader :c_body, :c_author, :comments, :c_track, :c_visible, :c_ping_body, :c_ping_title, :c_blog_title, :c_url, :c_mail, :c_date
-  
+
   def initialize
     @category = {}
     @title = {}
@@ -246,24 +312,24 @@ class TDiaryReader
     @c_mail = {}
     @c_date = {}
   end
-    
+
   def read_body(line)
   end
-  
+
   def end_body
   end
 
 
   def style_init
   end
-  
+
   def next_title(title,category)
     puts @title.inspect
     # 空行の次だったのでタイトルとして使用
     @key+=1
     @diary_key = "#{@date_string}-#{@key}"
-#    puts @diary_key
-    
+    #    puts @diary_key
+
     @category[@diary_key] = category
     @title[@diary_key] = title
 
@@ -272,19 +338,19 @@ class TDiaryReader
     @body[@diary_key] = ""
     @visible[@diary_key] = @visible_article
   end
-  
-#------------------------------
-# td2の読み込み。
-#------------------------------
-# 使用するkey
-# $diary_key = "${date}-${key}"
 
-# === つかうHash
-# $title{$diary_key}
-# $date{$diary_key}
-# $body{$diary_key}
+  #------------------------------
+  # td2の読み込み。
+  #------------------------------
+  # 使用するkey
+  # $diary_key = "${date}-${key}"
+
+  # === つかうHash
+  # $title{$diary_key}
+  # $date{$diary_key}
+  # $body{$diary_key}
   def read_tdiary(filename)
-  
+
     file = File.open(filename)
     content_switch = 0
     ul_switch=0
@@ -293,10 +359,10 @@ class TDiaryReader
     @diary_key = ""
     @visible_article = true
     p_date = ""
-    
+
     file.each_line do |line|
       line.chomp!
-      
+
       if content_switch == 0
         if(line =~ /TDIARY2/)
         elsif(line =~ /^$/)
@@ -308,7 +374,7 @@ class TDiaryReader
           elsif $1 == "tDiary"
             self.extend TDiaryStyle
           end
-          
+
           style_init
           # 意味無の行。ただし、Headerのさいご
         elsif(line =~ /Date: ([\w]+)/)
@@ -324,7 +390,7 @@ class TDiaryReader
           year = $1.to_i
           mon = $2.to_i
           day = $3.to_i
-          
+
           # MTの日付け書式に変換
           @p_date = sprintf("%02d/%02d/%02d", mon, day, year)
           @body[@diary_key] = ""
@@ -339,7 +405,7 @@ class TDiaryReader
           else
             @visible_article=false
           end
-          
+
           # 無視
         end
       else
@@ -413,13 +479,13 @@ class TDiaryReader
 
         # コメントと日付けの紐づけを間単にする。
         diary_key = "#{c_date}-1"
-        
+
         if @comments[diary_key]
           @comments[diary_key].push(c_diary_key)
         else
           @comments[diary_key] = [c_diary_key]
         end
-        
+
         @c_body[c_diary_key] = ""
         @c_author[c_diary_key] = ""
         @c_track[c_diary_key] = ""
@@ -492,8 +558,8 @@ class TDiaryReader
 
     file.close
   end
-  
-  
+
+
   #---------------------------
   # log2mt.logの本体部分出力
   #---------------------------
@@ -509,9 +575,9 @@ __DIARY_FST__
 
     if @category[key] != ""
       categories = @category[key].split(",")
-      
+
       file.puts "PRIMARY CATEGORY: #{categories[0]}"
-      
+
       for category in categories
         file.puts "CATEGORY: #{category}"
       end
@@ -536,13 +602,13 @@ KEYWORDS:
 -----
 __DIARY_SND__
   end
-  
-#------------------------------
-# log2mt.logのコメント部分出力
-#------------------------------
+
+  #------------------------------
+  # log2mt.logのコメント部分出力
+  #------------------------------
   def print_comment(file, key)
     file.print <<"__COMMENT__"
-COMMENT:
+COMMENT: 
 AUTHOR: #{@c_author[key]}
 EMAIL: #{@c_mail[key]}
 IP: 
@@ -554,15 +620,15 @@ DATE: #{@c_date[key]}
 __COMMENT__
   end
 
-#---------------------------------
-# log2mt.logのTrackBack部分出力
-#---------------------------------
+  #---------------------------------
+  # log2mt.logのTrackBack部分出力
+  #---------------------------------
   def print_ping(file, key)
     puts "#{key}"
     puts "#{@c_url[key]}"
     file.print <<"__PING__"
 
-PING:
+PING: 
 TITLE: #{@c_ping_title[key]}
 URL: #{@c_url[key]}
 IP: 
@@ -593,21 +659,24 @@ require 'pathname'
 #  exit 1
 #end
 
+combinedfile = File.open("mt-export.txt", "w")
+
+
 Dir.glob("*/*.td2").each do |td2filename|
   reader = TDiaryReader.new
   puts "convert #{td2filename}"
   tdcfilename = Pathname(td2filename).sub_ext('.tdc').to_s
-  outputfilename = Pathname(td2filename).sub_ext('.html').to_s
-  
+  outputfilename = Pathname(td2filename).sub_ext('.log').to_s
+
   reader.read_tdiary(td2filename)
   reader.read_comment(tdcfilename) if File.exist?(tdcfilename)
-  
-  outputfile = File.open(outputfilename, "w")
+
+  outputfile = File.open(outputfilename, "w+")
   target_list = reader.title.keys.sort
   for key in target_list
     if(reader.visible[key])
       reader.print_body(outputfile, key)
-      
+
       if reader.comments[key]
         # print つっこみ
         for c_key in reader.comments[key]
@@ -623,37 +692,12 @@ Dir.glob("*/*.td2").each do |td2filename|
       reader.print_end(outputfile)
     end
   end
+
+  outputfile.seek(0)
+  combinedfile.write(outputfile.read)
+  outputfile.close
 end
 
 
-=begin
-puts reader.visible.inspect
+combinedfile.close
 
-target_list = reader.title.keys.sort
-
-for key in target_list
-  print "D key : $title{$key}\n" if $DEBUG2
-  print "D date{$key}\n" if $DEBUG2
-  print "D body{$key}\n" if $DEBUG2
-  if(reader.visible[key]==1)
-    print_body(reader.title[key], reader.date[key], reader.body[key], reader.category[key])
-    
-    if reader.comments[key]
-      # print つっこみ
-      for c_key in reader.comments[key]
-        if(reader.c_visible[c_key]==1)
-          if(reader.c_track[c_key] == 0)
-            print_comment(reader.c_author[c_key], reader.c_mail[c_key], reader.c_date[c_key], reader.c_body[c_key], "","" )
-            #	        &print_comment($c_author{$c_key}, $c_mail{$c_key}, $c_date{$c_key}, $c_body{$c_key}, $c_ip{$c_key},$c_url{$c_key} )
-          else
-            print_ping(reader.c_ping_title[c_key], reader.c_url[c_key], reader.c_blog_name[c_key], reader.c_date[c_key], reader.c_ping_body[c_key], "")
-          end
-        end
-        print "D $c_key : $c_author{$c_key} : $c_mail{$c_key} : $c_date{$c_key}\n" if $DEBUG2
-        print "D $c_body{$c_key}\n" if $DEBUG2
-      end
-    end
-    print_end
-  end
-end
-=end
