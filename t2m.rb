@@ -1,33 +1,10 @@
 #!/usr/bin/env ruby
 require "time"
 
-
-# 前提知識
-#  tdiaryのログはdata_pathの下にファイルがあります。
-#  ファイル
-#   200405.td2 : 日記ファイルのデータ本体
-#   200405.tdc : ツッコミデータ ( TrackBackデータも存在 )
-#
-# 使いかた
-#  上記データファイルがカレントディレクトリにある時だけ、動作確認をしています。
-#
-#  t2m.pl -d [log file] {-n [date]}  {-g}
-#   [log file]は、最後の文字(2やc)を除いたファイル名を指定。
-#   200405.tdc, 200405.td2の場合は, 200405.tdを指定
-#
-#   [date] この日付けを指定し、これよりも新しい日付けの日記にたいして処理を行わせる
-#    書式例: 20040101
-#
-
 AUTHOR="hogehoge"
 
 #画像の移行を行うばあいは設定必須
 IMAGE_URL="/images"
-
-#use Getopt::Std;
-#use File::Copy;
-
-#getopt("d:n:g");
 
 module WikiStyle
   def style_init
