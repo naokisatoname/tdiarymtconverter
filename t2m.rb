@@ -184,24 +184,33 @@ module TDiaryStyle
   end
 
   def read_body(line)
+    # if @blank
+    #   # 空行の次だったのでタイトルとして使用
+    #   if (line =~ /\[([^\]]*)\](.*)/)
+    #     category = $1
+    #     title = $2
+    #   else
+    #     category = ""
+    #     title = line
+    #   end
+
+    #   next_title(title, category)
+
+    #   @blank = false
+    # else
+
     if @blank
-      # 空行の次だったのでタイトルとして使用
-      if (line =~ /\[([^\]]*)\](.*)/)
-        category = $1
-        title = $2
-      else
-        category = ""
-        title = line
-      end
+      title = @_title
+      category = ""
 
       next_title(title, category)
 
       @blank = false
-    else
+    end
 
-      if line == ""
-        @blank = true
-      else
+      # if line == ""
+      #   @blank = true
+      # else
         # 日記本体
         #  <%=image 0, '川べり　ここに写ってないけど、久々にすずめをみたよ。', nil, [256,192]%>
         #  <%=image 1, '職場からの東京(昼)その1'%>
@@ -257,8 +266,8 @@ module TDiaryStyle
 
         @body[@diary_key] += line + "\n"
 
-      end
-    end
+      # end
+    # end
   end
 
 end
