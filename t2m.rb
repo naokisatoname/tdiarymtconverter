@@ -350,6 +350,8 @@ class TDiaryReader
             self.extend WikiStyle
           elsif $1 == "tDiary"
             self.extend TDiaryStyle
+          elsif $1 == "Hatena"
+            self.extend TDiaryStyle
           end
 
           style_init
