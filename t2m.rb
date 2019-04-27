@@ -646,7 +646,7 @@ Dir.glob("*/*.td2").each do |td2filename|
   outputfilename = Pathname(td2filename).sub_ext('.log').to_s
 
   reader.read_tdiary(td2filename)
-  reader.read_comment(tdcfilename) if File.exist?(tdcfilename)
+  #reader.read_comment(tdcfilename) if File.exist?(tdcfilename)
 
   outputfile = File.open(outputfilename, "w+")
   target_list = reader.title.keys.sort
